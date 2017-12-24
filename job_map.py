@@ -5,6 +5,7 @@ import csv
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.wait import TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 
 def main(city, job):
@@ -24,13 +25,16 @@ def main(city, job):
         jobs_writer = csv.writer(csvfile, dialect='excel')
 
         while True:
-            pagination_count = driver.find_element_by_css_selector('.posiCount > span').get_attribute('innerText')
+            pagination_count = (driver
+                                .find_element_by_css_selector('.posiCount > span')
+                                .get_attribute('innerText'))
             start, end = tuple(map(int, pagination_count.replace(',', '').split('-')))
             positions = list(map(
                 lambda i: driver.find_element_by_id('position' + str(i)).get_attribute('title'),
                 range(end - start + 1)))
 
-            companies = driver.find_elements_by_css_selector('.hidden-xs[itemprop="hiringOrganization"]')
+            company_css = '.hidden-xs[itemprop="hiringOrganization"]'
+            companies = driver.find_elements_by_css_selector(company_css)
             companies = list(c.get_attribute('title') for c in companies)
 
             postal_codes = driver.find_elements_by_css_selector(
@@ -47,9 +51,8 @@ def main(city, job):
                 element = WebDriverWait(driver, 10).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, 'a[title="Go to next page"]')))
                 element.click()
-            except Exception as exception:
+            except TimeoutException:
                 # must be done
-                print(repr(exception))
                 break
 
             jobs_writer.writerows(zip(postal_codes, companies, positions))
@@ -59,8 +62,9 @@ def main(city, job):
 
 if __name__ == '__main__':
     try:
-        _script, city, job = sys.argv
-    except ValueError:
+        assert len(sys.argv) == 3
+        CITY, JOB = sys.argv[1], sys.argv[2]
+    except AssertionError:
         print('python JobMap.py <city name> <job title>')
     else:
-        main(city, job)
+        main(CITY, JOB)
